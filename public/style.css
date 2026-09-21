@@ -52,3 +52,5 @@ a.player-link { color: var(--green); text-decoration: none; font-weight: 500; }
 a.player-link:hover { text-decoration: underline; }
 
 .hidden { display: none !important; }
+/* Charts */
+.chart-box { position: relative; height: 340px; margin-top: 20px; padding: 16px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; }

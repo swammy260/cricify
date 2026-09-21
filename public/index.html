@@ -43,9 +43,12 @@
       </div>
 
       <div id="stats" class="stats"></div>
+      <div id="chart-box" class="chart-box hidden">
+        <canvas id="chart"></canvas>
+      </div>
     </section>
   </main>
-
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script>
     const listView = document.getElementById("list-view");
     const playerView = document.getElementById("player-view");
@@ -117,6 +120,75 @@
         ["Run-outs", f.runOuts], ["Total dismissals", f.total],
       ];
     }
+        let chart = null; // holds the current chart so we can replace it
+
+    function drawChart(tab) {
+      const seasons = currentPlayer.seasons || [];
+      const box = document.getElementById("chart-box");
+
+      // Remove the old chart before drawing a new one
+      if (chart) {
+        chart.destroy();
+        chart = null;
+      }
+
+      if (seasons.length === 0) {
+        box.classList.add("hidden");
+        return;
+      }
+      box.classList.remove("hidden");
+
+      const labels = seasons.map((s) => s.season);
+      const green = "#0b6e4f";
+      const orange = "#e08a1e";
+      const blue = "#2f6fb0";
+      let datasets, scales, title;
+
+      if (tab === "batting") {
+        title = "Runs and strike rate by season";
+        datasets = [
+          { type: "bar", label: "Runs", data: seasons.map((s) => s.batting.runs), backgroundColor: green, yAxisID: "y" },
+          { type: "line", label: "Strike rate", data: seasons.map((s) => s.batting.strikeRate), borderColor: orange, backgroundColor: orange, yAxisID: "y1", tension: 0.3, spanGaps: true },
+        ];
+        scales = {
+          y: { beginAtZero: true, title: { display: true, text: "Runs" } },
+          y1: { position: "right", grid: { drawOnChartArea: false }, title: { display: true, text: "Strike rate" } },
+        };
+      } else if (tab === "bowling") {
+        title = "Wickets and economy by season";
+        datasets = [
+          { type: "bar", label: "Wickets", data: seasons.map((s) => s.bowling.wickets), backgroundColor: green, yAxisID: "y" },
+          { type: "line", label: "Economy", data: seasons.map((s) => s.bowling.economy), borderColor: orange, backgroundColor: orange, yAxisID: "y1", tension: 0.3, spanGaps: true },
+        ];
+        scales = {
+          y: { beginAtZero: true, ticks: { precision: 0 }, title: { display: true, text: "Wickets" } },
+          y1: { position: "right", grid: { drawOnChartArea: false }, title: { display: true, text: "Economy" } },
+        };
+      } else {
+        title = "Dismissals by season";
+        datasets = [
+          { label: "Catches", data: seasons.map((s) => s.fielding.catches), backgroundColor: green },
+          { label: "Stumpings", data: seasons.map((s) => s.fielding.stumpings), backgroundColor: orange },
+          { label: "Run-outs", data: seasons.map((s) => s.fielding.runOuts), backgroundColor: blue },
+        ];
+        scales = {
+          x: { stacked: true },
+          y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } },
+        };
+      }
+
+      chart = new Chart(document.getElementById("chart"), {
+        type: "bar",
+        data: { labels, datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: "index", intersect: false },
+          plugins: { title: { display: true, text: title } },
+          scales,
+        },
+      });
+    }
 
     function showTab(tab) {
       document.querySelectorAll(".tab").forEach((btn) => {
@@ -131,7 +203,10 @@
         </div>`
         )
         .join("");
+
+      drawChart(tab); // NEW: draw the chart for this tab
     }
+    
 
     async function openPlayer(id) {
       const res = await fetch(`/api/players/${encodeURIComponent(id)}`);
