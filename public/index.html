@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cricify</title>
+  <style>
+    :root {
+      --green: #0b6e4f;
+      --bg: #f4f7f5;
+      --text: #1d2a24;
+      --muted: #66756d;
+      --card: #ffffff;
+      --border: #dde5e0;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); }
+    header { background: var(--green); color: #fff; padding: 16px 24px; }
+    header h1 { margin: 0; font-size: 24px; cursor: pointer; }
+    main { max-width: 900px; margin: 24px auto; padding: 0 16px; }
+    input { width: 100%; padding: 12px 14px; font-size: 16px; border: 1px solid var(--border); border-radius: 8px; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; background: var(--card); margin-top: 16px; }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+    th { background: #eaf1ed; font-size: 13px; text-transform: uppercase; color: var(--muted); }
+    tr.clickable { cursor: pointer; }
+    tr.clickable:hover { background: #f0f6f3; }
+    .message { color: var(--muted); margin-top: 12px; }
+    .back { background: none; border: none; color: var(--green); cursor: pointer; font-size: 15px; padding: 0; margin-bottom: 8px; }
+    .sub { color: var(--muted); margin-top: 0; }
+    .tabs { display: flex; gap: 8px; margin: 16px 0; }
+    .tab { padding: 8px 16px; border: 1px solid var(--border); background: var(--card); border-radius: 20px; cursor: pointer; font-size: 15px; }
+    .tab.active { background: var(--green); color: #fff; border-color: var(--green); }
+    .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+    .stat { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
+    .stat .value { font-size: 26px; font-weight: 700; }
+    .stat .label { color: var(--muted); font-size: 13px; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1 id="logo">🏏 Cricify</h1>
+  </header>
+
+  <main>
+    <!-- Player list view -->
+    <section id="list-view">
+      <input id="search" type="search" placeholder="Search for a player..." autocomplete="off">
+      <p id="list-message" class="message"></p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Player</th><th>Matches</th><th>Runs</th><th>Wickets</th><th>Catches</th></tr>
+          </thead>
+          <tbody id="list-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Single player view -->
+    <section id="player-view" class="hidden">
+      <button id="back" class="back">← Back to players</button>
+      <h2 id="player-name"></h2>
+      <p id="player-matches" class="sub"></p>
+
+      <div class="tabs">
+        <button class="tab active" data-tab="batting">Batting</button>
+        <button class="tab" data-tab="bowling">Bowling</button>
+        <button class="tab" data-tab="fielding">Fielding</button>
+      </div>
+
+      <div id="stats" class="stats"></div>
+    </section>
+  </main>
+
+  <script>
+    const listView = document.getElementById("list-view");
+    const playerView = document.getElementById("player-view");
+    const searchBox = document.getElementById("search");
+    const listBody = document.getElementById("list-body");
+    const listMessage = document.getElementById("list-message");
+
+    let currentPlayer = null;
+    let searchTimer = null;
+
+    // Make text safe to put inside HTML
+    function esc(text) {
+      return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    // Show a dash when a stat doesn't exist (e.g. average for someone never dismissed)
+    function fmt(value) {
+      return value === null || value === undefined ? "–" : value;
+    }
+
+    // Ask the server for players and fill in the table
+    async function loadPlayers(query = "") {
+      try {
+        const res = await fetch(`/api/players?q=${encodeURIComponent(query)}`);
+        const players = await res.json();
+
+        listMessage.textContent = players.length === 0 ? "No players found." : "";
+        listBody.innerHTML = players
+          .map(
+            (p) => `
+          <tr class="clickable" data-id="${esc(p.id)}">
+            <td>${esc(p.name)}</td>
+            <td>${p.matches}</td>
+            <td>${p.runs}</td>
+            <td>${p.wickets}</td>
+            <td>${p.catches}</td>
+          </tr>`
+          )
+          .join("");
+      } catch (err) {
+        listMessage.textContent = "Could not load players. Is the server running?";
+      }
+    }
+
+    // Which stat boxes to show for each tab
+    function statsFor(p, tab) {
+      if (tab === "batting") {
+        const b = p.batting;
+        return [
+          ["Innings", b.innings], ["Runs", b.runs], ["Average", b.average],
+          ["Strike rate", b.strikeRate], ["High score", b.highScore],
+          ["50s", b.fifties], ["100s", b.hundreds], ["Balls faced", b.balls],
+        ];
+      }
+      if (tab === "bowling") {
+        const w = p.bowling;
+        return [
+          ["Overs", w.overs], ["Wickets", w.wickets], ["Runs conceded", w.runs],
+          ["Economy", w.economy], ["Average", w.average], ["Strike rate", w.strikeRate],
+        ];
+      }
+      const f = p.fielding;
+      return [
+        ["Catches", f.catches], ["Stumpings", f.stumpings],
+        ["Run-outs", f.runOuts], ["Total dismissals", f.total],
+      ];
+    }
+
+    function showTab(tab) {
+      document.querySelectorAll(".tab").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.tab === tab);
+      });
+      document.getElementById("stats").innerHTML = statsFor(currentPlayer, tab)
+        .map(
+          ([label, value]) => `
+        <div class="stat">
+          <div class="value">${fmt(value)}</div>
+          <div class="label">${label}</div>
+        </div>`
+        )
+        .join("");
+    }
+
+    async function openPlayer(id) {
+      const res = await fetch(`/api/players/${encodeURIComponent(id)}`);
+      if (!res.ok) return;
+      currentPlayer = await res.json();
+
+      document.getElementById("player-name").textContent = currentPlayer.name;
+      document.getElementById("player-matches").textContent = `${currentPlayer.matches} matches`;
+
+      listView.classList.add("hidden");
+      playerView.classList.remove("hidden");
+      showTab("batting");
+    }
+
+    function showList() {
+      playerView.classList.add("hidden");
+      listView.classList.remove("hidden");
+    }
+
+    // ----- Wire up the page -----
+    listBody.addEventListener("click", (e) => {
+      const row = e.target.closest("tr[data-id]");
+      if (row) openPlayer(row.dataset.id);
+    });
+
+    document.querySelector(".tabs").addEventListener("click", (e) => {
+      if (e.target.dataset.tab) showTab(e.target.dataset.tab);
+    });
+
+    searchBox.addEventListener("input", () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => loadPlayers(searchBox.value), 250); // wait until they pause typing
+    });
+
+    document.getElementById("back").addEventListener("click", showList);
+    document.getElementById("logo").addEventListener("click", showList);
+
+    loadPlayers();
+  </script>
+</body>
+</html>
