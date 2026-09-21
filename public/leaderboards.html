@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Leaderboards | Cricify</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <h1 id="logo"><a href="/">🏏 Cricify</a></h1>
+    <nav>
+      <a href="/">Players</a>
+      <a href="/leaderboards.html" class="active">Leaderboards</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="controls">
+      <label>Category
+        <select id="category">
+          <option value="batting">Batting</option>
+          <option value="bowling">Bowling</option>
+          <option value="fielding">Fielding</option>
+        </select>
+      </label>
+
+      <label>Stat
+        <select id="stat"></select>
+      </label>
+
+      <label id="min-wrap">
+        <span id="min-label">Min innings</span>
+        <input id="min" type="number" min="0" value="10">
+      </label>
+    </div>
+
+    <p id="message" class="message"></p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Player</th>
+            <th>Matches</th>
+            <th id="value-heading">Runs</th>
+          </tr>
+        </thead>
+        <tbody id="board"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <script>
+    // What to show in the dropdowns. "rate" stats get the minimum box.
+    const CATEGORIES = {
+      batting: {
+        minLabel: "Min innings",
+        minDefault: 10,
+        stats: {
+          runs: { label: "Runs" },
+          average: { label: "Average", rate: true },
+          strikeRate: { label: "Strike rate", rate: true },
+          highScore: { label: "High score" },
+          hundreds: { label: "100s" },
+          fifties: { label: "50s" },
+        },
+      },
+      bowling: {
+        minLabel: "Min overs",
+        minDefault: 20,
+        stats: {
+          wickets: { label: "Wickets" },
+          economy: { label: "Economy", rate: true },
+          average: { label: "Average", rate: true },
+          strikeRate: { label: "Strike rate", rate: true },
+        },
+      },
+      fielding: {
+        minLabel: null,
+        stats: {
+          total: { label: "Total dismissals" },
+          catches: { label: "Catches" },
+          stumpings: { label: "Stumpings" },
+          runOuts: { label: "Run-outs" },
+        },
+      },
+    };
+
+    const categorySelect = document.getElementById("category");
+    const statSelect = document.getElementById("stat");
+    const minWrap = document.getElementById("min-wrap");
+    const minLabel = document.getElementById("min-label");
+    const minInput = document.getElementById("min");
+    const board = document.getElementById("board");
+    const message = document.getElementById("message");
+    const valueHeading = document.getElementById("value-heading");
+
+    let timer = null;
+
+    function esc(text) {
+      return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    // Fill the Stat dropdown for the chosen category
+    function fillStats() {
+      const stats = CATEGORIES[categorySelect.value].stats;
+      statSelect.innerHTML = Object.entries(stats)
+        .map(([key, s]) => `<option value="${key}">${s.label}</option>`)
+        .join("");
+    }
+
+    // Show the minimum box only for rate stats (average, strike rate, economy)
+    function updateMinBox() {
+      const cat = CATEGORIES[categorySelect.value];
+      const stat = cat.stats[statSelect.value];
+      const show = stat.rate && cat.minLabel;
+      minWrap.classList.toggle("hidden", !show);
+      if (show) minLabel.textContent = cat.minLabel;
+    }
+
+    async function loadBoard() {
+      const cat = CATEGORIES[categorySelect.value];
+      const stat = cat.stats[statSelect.value];
+      valueHeading.textContent = stat.label;
+
+      const params = new URLSearchParams({
+        category: categorySelect.value,
+        stat: statSelect.value,
+        min: minInput.value || 0,
+      });
+
+      try {
+        const res = await fetch(`/api/leaderboard?${params}`);
+        const rows = await res.json();
+
+        message.textContent = rows.length === 0 ? "No players meet that minimum. Try lowering it." : "";
+        board.innerHTML = rows
+          .map(
+            (r) => `
+          <tr>
+            <td class="rank">${r.rank}</td>
+            <td><a class="player-link" href="/#player=${encodeURIComponent(r.id)}">${esc(r.name)}</a></td>
+            <td>${r.matches}</td>
+            <td class="value">${r.value}</td>
+          </tr>`
+          )
+          .join("");
+      } catch (err) {
+        message.textContent = "Could not load the leaderboard. Is the server running?";
+      }
+    }
+
+    // Changing category: refill stats, reset the minimum to a sensible default, reload
+    categorySelect.addEventListener("change", () => {
+      fillStats();
+      const cat = CATEGORIES[categorySelect.value];
+      if (cat.minDefault !== undefined) minInput.value = cat.minDefault;
+      updateMinBox();
+      loadBoard();
+    });
+
+    statSelect.addEventListener("change", () => {
+      updateMinBox();
+      loadBoard();
+    });
+
+    minInput.addEventListener("input", () => {
+      clearTimeout(timer);
+      timer = setTimeout(loadBoard, 300); // wait until they stop typing
+    });
+
+    // Start
+    fillStats();
+    updateMinBox();
+    loadBoard();
+  </script>
+</body>
+</html>

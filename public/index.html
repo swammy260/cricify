@@ -4,43 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Cricify</title>
-  <style>
-    :root {
-      --green: #0b6e4f;
-      --bg: #f4f7f5;
-      --text: #1d2a24;
-      --muted: #66756d;
-      --card: #ffffff;
-      --border: #dde5e0;
-    }
-    * { box-sizing: border-box; }
-    body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); }
-    header { background: var(--green); color: #fff; padding: 16px 24px; }
-    header h1 { margin: 0; font-size: 24px; cursor: pointer; }
-    main { max-width: 900px; margin: 24px auto; padding: 0 16px; }
-    input { width: 100%; padding: 12px 14px; font-size: 16px; border: 1px solid var(--border); border-radius: 8px; }
-    .table-wrap { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; background: var(--card); margin-top: 16px; }
-    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
-    th { background: #eaf1ed; font-size: 13px; text-transform: uppercase; color: var(--muted); }
-    tr.clickable { cursor: pointer; }
-    tr.clickable:hover { background: #f0f6f3; }
-    .message { color: var(--muted); margin-top: 12px; }
-    .back { background: none; border: none; color: var(--green); cursor: pointer; font-size: 15px; padding: 0; margin-bottom: 8px; }
-    .sub { color: var(--muted); margin-top: 0; }
-    .tabs { display: flex; gap: 8px; margin: 16px 0; }
-    .tab { padding: 8px 16px; border: 1px solid var(--border); background: var(--card); border-radius: 20px; cursor: pointer; font-size: 15px; }
-    .tab.active { background: var(--green); color: #fff; border-color: var(--green); }
-    .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
-    .stat { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
-    .stat .value { font-size: 26px; font-weight: 700; }
-    .stat .label { color: var(--muted); font-size: 13px; }
-    .hidden { display: none; }
-  </style>
+  <link rel="stylesheet" href="/style.css">
 </head>
 <body>
   <header>
     <h1 id="logo">🏏 Cricify</h1>
+    <nav>
+      <a href="/" class="active">Players</a>
+      <a href="/leaderboards.html">Leaderboards</a>
+    </nav>
   </header>
 
   <main>
@@ -198,6 +170,9 @@
     document.getElementById("logo").addEventListener("click", showList);
 
     loadPlayers();
+        // If we arrived from a leaderboard link like /#player=abc123, open that player
+    const hashPlayer = new URLSearchParams(location.hash.slice(1)).get("player");
+    if (hashPlayer) openPlayer(hashPlayer);
   </script>
 </body>
 </html>

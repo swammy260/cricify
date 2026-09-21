@@ -5,3 +5,4 @@ venv/
 API_KEY="gfakfgakfgakfgakfg"
 stats/
 node_modules/
+output/
