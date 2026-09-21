@@ -3,3 +3,5 @@ __pycache__/
 venv/
 .env
 API_KEY="gfakfgakfgakfgakfg"
+stats/
+node_modules/
